@@ -5,8 +5,8 @@ mod life;
 
 use crate::pac::interrupt;
 
-use life::*;
 use cortex_m_rt::entry;
+use life::*;
 #[rustfmt::skip]
 use microbit::{
     display::blocking::Display,
@@ -21,11 +21,8 @@ use microbit::{
 use nanorand::{Pcg64, Rng};
 use panic_halt as _;
 
-
-use embedded_hal::delay::DelayNs;
-
-use rtt_target::rtt_init_log;
 use critical_section_lock_mut::LockMut;
+use rtt_target::rtt_init_log;
 
 const MILLISECONDS_PER_FRAME: u32 = 100;
 
@@ -33,9 +30,7 @@ static IS_A_PRESSED: LockMut<bool> = LockMut::new();
 static IS_B_PRESSED: LockMut<bool> = LockMut::new();
 static GPIO: LockMut<Gpiote> = LockMut::new();
 
-
 fn init_board(rng: &mut Pcg64) -> [[u8; 5]; 5] {
-
     let mut randomized_board = [[0u8; 5]; 5];
 
     for row in &mut randomized_board {
@@ -50,7 +45,7 @@ fn init_board(rng: &mut Pcg64) -> [[u8; 5]; 5] {
 fn complement_board(current_board_state: &mut [[u8; 5]; 5]) {
     for row in current_board_state {
         for cell in row {
-            *cell = *cell ^ 1;
+            *cell ^= 1
         }
     }
 }
@@ -64,10 +59,7 @@ fn main() -> ! {
     let gpiote = Gpiote::new(board.GPIOTE);
 
     let setup_channel = |channel: GpioteChannel, button: &gpio::Pin<Input<Floating>>| {
-        channel
-            .input_pin(button)
-            .hi_to_lo()
-            .enable_interrupt();
+        channel.input_pin(button).hi_to_lo().enable_interrupt();
         channel.reset_events();
     };
 
@@ -83,7 +75,6 @@ fn main() -> ! {
     }
     pac::NVIC::unpend(pac::Interrupt::GPIOTE);
 
-    
     let mut display = Display::new(board.display_pins);
 
     let mut timer0 = Timer::new(board.TIMER0);
@@ -101,7 +92,10 @@ fn main() -> ! {
     loop {
         let mut is_a_pressed = false;
         let mut is_b_pressed = false;
-        IS_A_PRESSED.with_lock(|a| is_a_pressed = *a);
+        IS_A_PRESSED.with_lock(|a| {
+            is_a_pressed = *a;
+            *a = false;
+        });
         IS_B_PRESSED.with_lock(|b| {
             is_b_pressed = *b;
             *b = false;
@@ -131,12 +125,10 @@ fn main() -> ! {
             ignore_b_frames -= 1;
         }
 
-        display.show(&mut timer0, current_board_state, 1000);
+        display.show(&mut timer0, current_board_state, MILLISECONDS_PER_FRAME);
         display.clear();
-        timer0.delay_ms(MILLISECONDS_PER_FRAME);
     }
 }
-
 
 #[cortex_m_rt::interrupt]
 fn GPIOTE() {
