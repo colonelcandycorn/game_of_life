@@ -63,8 +63,14 @@ fn main() -> ! {
         channel.reset_events();
     };
 
-    setup_channel(gpiote.channel0(), &board.buttons.button_a.degrade());
+    let setup_toggle_channel = |channel: GpioteChannel, button: &gpio::Pin<Input<Floating>>| {
+        channel.input_pin(button).toggle().enable_interrupt();
+        channel.reset_events();
+    };
+
+    setup_toggle_channel(gpiote.channel0(), &board.buttons.button_a.degrade());
     setup_channel(gpiote.channel1(), &board.buttons.button_b.degrade());
+    // setup_low_to_hi_channel(gpiote.channel2(), &board.buttons.button_a.degrade());
 
     IS_A_PRESSED.init(false);
     IS_B_PRESSED.init(false);
@@ -89,12 +95,12 @@ fn main() -> ! {
     let mut ignore_b_frames = 0;
     let mut frames_waited = 0;
 
+    let mut is_a_pressed = false;
+    let mut is_b_pressed = false;
+
     loop {
-        let mut is_a_pressed = false;
-        let mut is_b_pressed = false;
         IS_A_PRESSED.with_lock(|a| {
             is_a_pressed = *a;
-            *a = false;
         });
         IS_B_PRESSED.with_lock(|b| {
             is_b_pressed = *b;
@@ -138,7 +144,9 @@ fn GPIOTE() {
         let button_a_pressed = gpiote.channel0().is_event_triggered();
         let button_b_pressed = gpiote.channel1().is_event_triggered();
 
-        IS_A_PRESSED.with_lock(|a| *a = button_a_pressed);
+        if button_a_pressed {
+            IS_A_PRESSED.with_lock(|a| *a = !*a);
+        }
 
         if button_b_pressed {
             IS_B_PRESSED.with_lock(|b| *b = true);
